@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Managed by Terraform (terraform-gigahost-openra-server). Idempotent: safe to
+# re-run. Installs and (re)starts an OpenRA dedicated server from the official
+# self-contained Linux AppImage, which bundles the .NET runtime.
+set -euo pipefail
+
+OPENRA_VERSION="${openra_version}"
+APPIMAGE_URL="${appimage_url}"
+INSTALL_DIR="${install_dir}"
+RUN_USER="${run_user}"
+
+RELEASE_DIR="$INSTALL_DIR/releases/$OPENRA_VERSION"
+ENGINE_DIR="$RELEASE_DIR/squashfs-root"
+
+# 1. Let cloud-init / unattended-upgrades finish so apt is not locked.
+cloud-init status --wait >/dev/null 2>&1 || true
+
+# 2. Runtime libraries. The self-contained AppImage bundles .NET, so we install
+#    only the native libraries the engine links against -- no dotnet/mono.
+export DEBIAN_FRONTEND=noninteractive
+apt-get -o DPkg::Lock::Timeout=300 update -y
+apt-get -o DPkg::Lock::Timeout=300 install -y --no-install-recommends \
+  ca-certificates curl libfreetype6 libopenal1 liblua5.1-0 libsdl2-2.0-0
+
+# 3. Unprivileged service user; its home is the install dir so OpenRA's support
+#    directory (~/.config/openra) is writable.
+if ! id "$RUN_USER" >/dev/null 2>&1; then
+  useradd --system --create-home --home-dir "$INSTALL_DIR" --shell /usr/sbin/nologin "$RUN_USER"
+fi
+install -d -o "$RUN_USER" -g "$RUN_USER" "$INSTALL_DIR" "$INSTALL_DIR/releases"
+
+# 4. Download and extract the pinned release exactly once. --appimage-extract
+#    unpacks without needing FUSE, which suits a headless host.
+if [ ! -x "$ENGINE_DIR/AppRun" ]; then
+  install -d -o "$RUN_USER" -g "$RUN_USER" "$RELEASE_DIR"
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' EXIT
+  curl -fSL -o "$tmp/openra.AppImage" "$APPIMAGE_URL"
+  chmod +x "$tmp/openra.AppImage"
+  (cd "$RELEASE_DIR" && "$tmp/openra.AppImage" --appimage-extract >/dev/null)
+  chown -R "$RUN_USER":"$RUN_USER" "$RELEASE_DIR"
+fi
+
+# 5. Install/refresh the unit (uploaded by the file provisioner) and (re)start.
+install -m 0640 -o root -g root /tmp/openra-dedicated.service /etc/systemd/system/openra-dedicated.service
+systemctl daemon-reload
+systemctl enable openra-dedicated.service >/dev/null
+systemctl restart openra-dedicated.service

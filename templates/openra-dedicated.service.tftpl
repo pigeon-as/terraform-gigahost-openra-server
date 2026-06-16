@@ -1,0 +1,42 @@
+[Unit]
+Description=OpenRA dedicated server (${server.mod})
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${run_user}
+Group=${run_user}
+Environment=HOME=${install_dir}
+WorkingDirectory=${engine_dir}
+ExecStart=${engine_dir}/AppRun --server \
+    "Server.Name=${server.name}" \
+    "Game.Mod=${server.mod}" \
+    "Server.Map=${server.map}" \
+    "Server.ListenPort=${server.listen_port}" \
+    "Server.AdvertiseOnline=${server.advertise_online ? "True" : "False"}" \
+    "Server.Password=${server.password}" \
+    "Server.RequireAuthentication=${server.require_authentication ? "True" : "False"}" \
+    "Server.EnableSingleplayer=${server.enable_singleplayer ? "True" : "False"}" \
+    "Server.RecordReplays=${server.record_replays ? "True" : "False"}" \
+    "Server.EnableSyncReports=${server.enable_sync_reports ? "True" : "False"}" \
+    "Server.EnableGeoIP=${server.enable_geoip ? "True" : "False"}" \
+    "Server.EnableLintChecks=${server.enable_lint_checks ? "True" : "False"}" \
+    "Server.ShareAnonymizedIPs=${server.share_anonymized_ips ? "True" : "False"}" \
+    "Server.QueryMapRepository=${server.query_map_repository ? "True" : "False"}" \
+    "Server.MapPool=${join(",", server.map_pool)}" \
+    "Server.Ban=${join(",", server.ban)}" \
+    "Server.ProfileIDBlacklist=${join(",", server.profile_id_blacklist)}" \
+    "Server.ProfileIDWhitelist=${join(",", server.profile_id_whitelist)}" \
+    "Server.EnableVoteKick=${server.enable_vote_kick ? "True" : "False"}" \
+    "Server.VoteKickTimer=${server.vote_kick_timer}" \
+    "Server.FloodLimitJoinCooldown=${server.flood_limit_join_cooldown}"
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
