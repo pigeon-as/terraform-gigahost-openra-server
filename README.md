@@ -31,7 +31,7 @@ private key is exposed as the `ssh_private_key` output for your own SSH access.
 provider "gigahost" {} # reads GIGAHOST_API_TOKEN from the environment
 
 module "openra" {
-  source = "github.com/joakimbakkehellum/terraform-gigahost-openra-server"
+  source = "github.com/pigeon-as/terraform-gigahost-openra-server"
 
   server = {
     name = "My OpenRA Server"
